@@ -20,6 +20,36 @@ public enum ProjectTemplate
     // 可以根据需要添加更多模板
 }
 
+// 定义 .NET Framework 版本枚举
+public enum DotNetFrameworkVersion
+{
+    Net60,     // .NET 6.0
+    Net70,     // .NET 7.0
+    Net80,     // .NET 8.0
+    Net90,     // .NET 9.0
+    Net100,    // .NET 10.0
+    NetStandard20, // .NET Standard 2.0
+    NetStandard21, // .NET Standard 2.1
+}
+
+// 定义 C# 语言版本枚举
+public enum CSharpLanguageVersion
+{
+    Latest,      // 最新版本
+    Preview,     // 预览版本
+    CSharp3,     // C# 3.0
+    CSharp4,     // C# 4.0
+    CSharp5,     // C# 5.0
+    CSharp6,     // C# 6.0
+    CSharp7,     // C# 7.0
+    CSharp8,     // C# 8.0
+    CSharp9,     // C# 9.0
+    CSharp10,    // C# 10.0
+    CSharp11,    // C# 11.0
+    CSharp12,    // C# 12.0
+    CSharp13,    // C# 13.0
+}
+
 public class DotNetProjectCreator
 {
     public static bool IsDotNetInstalled()
@@ -51,6 +81,102 @@ public class DotNetProjectCreator
         }
     }
     
+    /// <summary>
+    /// 使用 dotnet new 命令创建新项目，并实时输出日志
+    /// </summary>
+    /// <param name="template">要使用的模板</param>
+    /// <param name="outputDirectory">项目输出目录</param>
+    /// <param name="framework">目标框架版本</param>
+    /// <param name="additionalArgs">额外的参数数组，例如 ["-n", "MyProjectName"]</param>
+    /// <returns>是否成功执行</returns>
+    public static bool CreateProject(
+        ProjectTemplate template,
+        string outputDirectory,
+        DotNetFrameworkVersion framework,
+        params string[] additionalArgs
+    )
+    {
+        // 将枚举转换为字符串名称
+        string templateName = Enum.GetName(typeof(ProjectTemplate), template).ToLowerInvariant();
+        string frameworkName = GetFrameworkVersionString(framework);
+
+        // 构建参数
+        var argsList = new List<string> { $"new {templateName}", $"-o \"{outputDirectory}\"", $"-f {frameworkName}" };
+        if (additionalArgs != null && additionalArgs.Length > 0)
+        {
+            argsList.AddRange(additionalArgs);
+        }
+
+        // 配置 ProcessStartInfo
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = string.Join(" ", argsList),
+            UseShellExecute = false,
+            RedirectStandardOutput = true, // 重定向输出
+            RedirectStandardError = true, // 重定向错误
+            CreateNoWindow = true,
+            // 2. 关键：设置正确的编码
+            StandardOutputEncoding = Encoding.Default, // 使用系统默认编码 (通常是GBK/GB2312)
+            StandardErrorEncoding = Encoding.Default, // 使用系统默认编码
+            // WorkingDirectory = outputParentDir // 可选设置工作目录
+        };
+
+        try
+        {
+            using (var process = Process.Start(startInfo))
+            {
+                if (process == null)
+                {
+                    Console.WriteLine("Failed to start 'dotnet' process.");
+                    return false;
+                }
+
+                // 订阅输出和错误事件以实现流式处理
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[STDOUT] {e.Data}"); // 实时打印标准输出 (现在应该正常)
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[STDERR] {e.Data}"); // 实时打印标准错误 (现在应该正常)
+                    }
+                };
+
+                // 开始异步读取输出和错误流
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                // 等待进程退出
+                process.WaitForExit();
+
+                int exitCode = process.ExitCode;
+
+                if (exitCode == 0)
+                {
+                    Console.WriteLine("Project created successfully!");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"dotnet new failed with exit code: {exitCode}");
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while running 'dotnet new': {ex.Message}");
+            return false;
+        }
+    }
+
     /// <summary>
     /// 使用 dotnet new 命令创建新项目，并实时输出日志
     /// </summary>
@@ -288,5 +414,170 @@ public class DotNetProjectCreator
             Console.WriteLine($"[RUN] An error occurred while running 'dotnet run': {ex.Message}");
             return false;
         }
+    }
+
+    /// <summary>
+    /// 创建一个新的解决方案文件
+    /// </summary>
+    /// <param name="solutionPath">解决方案文件的完整路径（包括.sln扩展名）</param>
+    /// <returns>是否成功创建</returns>
+    public static bool CreateSolution(string solutionPath)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"new sln -n \"{Path.GetFileNameWithoutExtension(solutionPath)}\" -o \"{Path.GetDirectoryName(solutionPath)}\"",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.Default,
+            StandardErrorEncoding = Encoding.Default,
+            WorkingDirectory = Path.GetDirectoryName(solutionPath)
+        };
+
+        try
+        {
+            using (var process = Process.Start(startInfo))
+            {
+                if (process == null)
+                {
+                    Console.WriteLine("Failed to start 'dotnet new sln' process.");
+                    return false;
+                }
+
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[SLN STDOUT] {e.Data}");
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[SLN STDERR] {e.Data}");
+                    }
+                };
+
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                process.WaitForExit();
+
+                int exitCode = process.ExitCode;
+
+                if (exitCode == 0)
+                {
+                    Console.WriteLine($"Solution created successfully at: {solutionPath}");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"dotnet new sln failed with exit code: {exitCode}");
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while running 'dotnet new sln': {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 将项目添加到解决方案中
+    /// </summary>
+    /// <param name="solutionPath">解决方案文件的路径</param>
+    /// <param name="projectPath">要添加的项目文件路径</param>
+    /// <returns>是否成功添加</returns>
+    public static bool AddProjectToSolution(string solutionPath, string projectPath)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"sln \"{solutionPath}\" add \"{projectPath}\"",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.Default,
+            StandardErrorEncoding = Encoding.Default,
+            WorkingDirectory = Path.GetDirectoryName(solutionPath)
+        };
+
+        try
+        {
+            using (var process = Process.Start(startInfo))
+            {
+                if (process == null)
+                {
+                    Console.WriteLine("Failed to start 'dotnet sln add' process.");
+                    return false;
+                }
+
+                process.OutputDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[SLN ADD STDOUT] {e.Data}");
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                    {
+                        Console.WriteLine($"[SLN ADD STDERR] {e.Data}");
+                    }
+                };
+
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
+                process.WaitForExit();
+
+                int exitCode = process.ExitCode;
+
+                if (exitCode == 0)
+                {
+                    Console.WriteLine($"Project added successfully to solution: {solutionPath}");
+                    return true;
+                }
+                else
+                {
+                    Console.WriteLine($"dotnet sln add failed with exit code: {exitCode}");
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while running 'dotnet sln add': {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 将 DotNetFrameworkVersion 枚举转换为对应的字符串
+    /// </summary>
+    /// <param name="version">框架版本枚举</param>
+    /// <returns>对应的字符串表示</returns>
+    private static string GetFrameworkVersionString(DotNetFrameworkVersion version)
+    {
+        return version switch
+        {
+            DotNetFrameworkVersion.Net60 => "net6.0",
+            DotNetFrameworkVersion.Net70 => "net7.0",
+            DotNetFrameworkVersion.Net80 => "net8.0",
+            DotNetFrameworkVersion.Net90 => "net9.0",
+            DotNetFrameworkVersion.Net100 => "net10.0",
+            DotNetFrameworkVersion.NetStandard20 => "netstandard2.0",
+            DotNetFrameworkVersion.NetStandard21 => "netstandard2.1",
+            _ => "net8.0" // 默认值
+        };
     }
 }

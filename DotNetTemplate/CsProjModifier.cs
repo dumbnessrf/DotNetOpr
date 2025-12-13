@@ -43,6 +43,18 @@ public class CsProjModifier
         }
     }
     
+    /// <summary>
+    /// Sets the C# language version in the .csproj file.
+    /// </summary>
+    /// <param name="csprojFilePath">The path to the .csproj file.</param>
+    /// <param name="langVersion">The C# language version to set.</param>
+    /// <returns>True if the property was set or updated, false if it was already set to the desired value or an error occurred.</returns>
+    public static bool SetLanguageVersion(string csprojFilePath, CSharpLanguageVersion langVersion)
+    {
+        string langVersionString = GetLanguageVersionString(langVersion);
+        return SetProperty(csprojFilePath, "LangVersion", langVersionString);
+    }
+    
 /// <summary>
     /// 向指定的 .csproj 文件添加一个或多个对本地 DLL 的引用。
     /// </summary>
@@ -351,5 +363,30 @@ public class CsProjModifier
             return true; // Added
         }
     }
-
+    
+    /// <summary>
+    /// 将 CSharpLanguageVersion 枚举转换为对应的字符串
+    /// </summary>
+    /// <param name="version">语言版本枚举</param>
+    /// <returns>对应的字符串表示</returns>
+    private static string GetLanguageVersionString(CSharpLanguageVersion version)
+    {
+        return version switch
+        {
+            CSharpLanguageVersion.Latest => "latest",
+            CSharpLanguageVersion.Preview => "preview",
+            CSharpLanguageVersion.CSharp3 => "3.0",
+            CSharpLanguageVersion.CSharp4 => "4.0",
+            CSharpLanguageVersion.CSharp5 => "5.0",
+            CSharpLanguageVersion.CSharp6 => "6.0",
+            CSharpLanguageVersion.CSharp7 => "7.0",
+            CSharpLanguageVersion.CSharp8 => "8.0",
+            CSharpLanguageVersion.CSharp9 => "9.0",
+            CSharpLanguageVersion.CSharp10 => "10.0",
+            CSharpLanguageVersion.CSharp11 => "11.0",
+            CSharpLanguageVersion.CSharp12 => "12.0",
+            CSharpLanguageVersion.CSharp13 => "13.0",
+            _ => "latest"
+        };
+    }
 }
