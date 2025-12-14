@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace DotNetTemplate;
 
@@ -52,6 +54,8 @@ public enum CSharpLanguageVersion
 
 public class DotNetProjectCreator
 {
+    private static ILogger logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<DotNetProjectCreator>();
+
     public static bool IsDotNetInstalled()
     {
         try
@@ -128,7 +132,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet' process.");
+                    logger.LogError("Failed to start 'dotnet' process.");
                     return false;
                 }
 
@@ -137,7 +141,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[STDOUT] {e.Data}"); // 实时打印标准输出 (现在应该正常)
+                        logger.LogInformation("[STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -145,7 +149,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[STDERR] {e.Data}"); // 实时打印标准错误 (现在应该正常)
+                        logger.LogError("[STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -160,19 +164,19 @@ public class DotNetProjectCreator
 
                 if (exitCode == 0)
                 {
-                    Console.WriteLine("Project created successfully!");
+                    logger.LogInformation("Project created successfully!");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"dotnet new failed with exit code: {exitCode}");
+                    logger.LogError("dotnet new failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred while running 'dotnet new': {ex.Message}");
+            logger.LogError(ex, "An error occurred while running 'dotnet new'");
             return false;
         }
     }
@@ -215,7 +219,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet' process.");
+                    logger.LogError("Failed to start 'dotnet' process.");
                     return false;
                 }
 
@@ -224,7 +228,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[STDOUT] {e.Data}"); // 实时打印标准输出 (现在应该正常)
+                        logger.LogInformation("[STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -232,7 +236,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[STDERR] {e.Data}"); // 实时打印标准错误 (现在应该正常)
+                        logger.LogError("[STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -247,19 +251,19 @@ public class DotNetProjectCreator
 
                 if (exitCode == 0)
                 {
-                    Console.WriteLine("Project created successfully!");
+                    logger.LogInformation("Project created successfully!");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"dotnet new failed with exit code: {exitCode}");
+                    logger.LogError("dotnet new failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred while running 'dotnet new': {ex.Message}");
+            logger.LogError(ex, "An error occurred while running 'dotnet new'");
             return false;
         }
     }
@@ -292,7 +296,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet build' process.");
+                    logger.LogError("Failed to start 'dotnet build' process.");
                     return false;
                 }
 
@@ -300,7 +304,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[BUILD STDOUT] {e.Data}"); // 区分编译日志
+                        logger.LogInformation("[BUILD STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -308,7 +312,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[BUILD STDERR] {e.Data}"); // 区分编译日志
+                        logger.LogError("[BUILD STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -321,21 +325,19 @@ public class DotNetProjectCreator
 
                 if (exitCode == 0)
                 {
-                    Console.WriteLine("[BUILD] Project built successfully!");
+                    logger.LogInformation("[BUILD] Project built successfully!");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"[BUILD] dotnet build failed with exit code: {exitCode}");
+                    logger.LogError("[BUILD] dotnet build failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(
-                $"[BUILD] An error occurred while running 'dotnet build': {ex.Message}"
-            );
+            logger.LogError(ex, "[BUILD] An error occurred while running 'dotnet build'");
             return false;
         }
     }
@@ -368,7 +370,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet run' process.");
+                    logger.LogError("Failed to start 'dotnet run' process.");
                     return false;
                 }
 
@@ -376,7 +378,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[RUN STDOUT] {e.Data}"); // 区分运行日志
+                        logger.LogInformation("[RUN STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -384,7 +386,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[RUN STDERR] {e.Data}"); // 区分运行日志
+                        logger.LogError("[RUN STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -399,19 +401,19 @@ public class DotNetProjectCreator
                 // 如果应用程序返回非零值，这里也认为是 "失败"（虽然有时非零退出码是预期的行为）
                 if (exitCode == 0)
                 {
-                    Console.WriteLine("[RUN] Project executed successfully!");
+                    logger.LogInformation("[RUN] Project executed successfully!");
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"[RUN] Project execution failed with exit code: {exitCode}");
+                    logger.LogError("[RUN] Project execution failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[RUN] An error occurred while running 'dotnet run': {ex.Message}");
+            logger.LogError(ex, "[RUN] An error occurred while running 'dotnet run'");
             return false;
         }
     }
@@ -442,7 +444,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet new sln' process.");
+                    logger.LogError("Failed to start 'dotnet new sln' process.");
                     return false;
                 }
 
@@ -450,7 +452,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[SLN STDOUT] {e.Data}");
+                        logger.LogInformation("[SLN STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -458,7 +460,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[SLN STDERR] {e.Data}");
+                        logger.LogError("[SLN STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -471,19 +473,19 @@ public class DotNetProjectCreator
 
                 if (exitCode == 0)
                 {
-                    Console.WriteLine($"Solution created successfully at: {solutionPath}");
+                    logger.LogInformation("Solution created successfully at: {SolutionPath}", solutionPath);
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"dotnet new sln failed with exit code: {exitCode}");
+                    logger.LogError("dotnet new sln failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred while running 'dotnet new sln': {ex.Message}");
+            logger.LogError(ex, "An error occurred while running 'dotnet new sln'");
             return false;
         }
     }
@@ -515,7 +517,7 @@ public class DotNetProjectCreator
             {
                 if (process == null)
                 {
-                    Console.WriteLine("Failed to start 'dotnet sln add' process.");
+                    logger.LogError("Failed to start 'dotnet sln add' process.");
                     return false;
                 }
 
@@ -523,7 +525,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[SLN ADD STDOUT] {e.Data}");
+                        logger.LogInformation("[SLN ADD STDOUT] {Data}", e.Data);
                     }
                 };
 
@@ -531,7 +533,7 @@ public class DotNetProjectCreator
                 {
                     if (!string.IsNullOrEmpty(e.Data))
                     {
-                        Console.WriteLine($"[SLN ADD STDERR] {e.Data}");
+                        logger.LogError("[SLN ADD STDERR] {Data}", e.Data);
                     }
                 };
 
@@ -544,19 +546,19 @@ public class DotNetProjectCreator
 
                 if (exitCode == 0)
                 {
-                    Console.WriteLine($"Project added successfully to solution: {solutionPath}");
+                    logger.LogInformation("Project added successfully to solution: {SolutionPath}", solutionPath);
                     return true;
                 }
                 else
                 {
-                    Console.WriteLine($"dotnet sln add failed with exit code: {exitCode}");
+                    logger.LogError("dotnet sln add failed with exit code: {ExitCode}", exitCode);
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"An error occurred while running 'dotnet sln add': {ex.Message}");
+            logger.LogError(ex, "An error occurred while running 'dotnet sln add'");
             return false;
         }
     }

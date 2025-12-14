@@ -1,150 +1,67 @@
-using SharpBoxesCore.Helpers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace DotNetTemplate;
 
 public class Sample_ConsoleCreate
 {
+    private static ILogger logger = LoggerFactory
+        .Create(builder => builder.AddConsole())
+        .CreateLogger<Sample_ConsoleCreate>();
+
     public void Foo()
     {
-        #region Prequisites
+        string solutionName = @"testcmd";
+        string projectName = @"testcmd";
 
-        string programCode = """
-            using Newtonsoft.Json;
-            var res = Function.Add(10,20);
-            Console.WriteLine(res);
-            Console.WriteLine("Hello World!");
-            var obj = new {Name="John Doe", Age=30};
-            Console.WriteLine(JsonConvert.SerializeObject(obj, Formatting.Indented));
-            """;
-        string functionCode = """
-            public static class Function
-            {
-                public static int Add(int a, int b)
-                {
-                    return a + b;
-                }
-            }
-            """;
-        var programCodePath = Environment
-            .GetFolderPath(Environment.SpecialFolder.Desktop)
-            .PathCombine("Program.cs");
-        File.WriteAllText(programCodePath, programCode);
-        var functionCodePath = Environment
-            .GetFolderPath(Environment.SpecialFolder.Desktop)
-            .PathCombine("Function.cs");
-        File.WriteAllText(functionCodePath, functionCode);
-        string[] dllPathsToAdd =
-        [
-            @"C:\Users\Administrator\Desktop\DotNetOpr\DotNetTemplate\bin\Debug\net10.0\Newtonsoft.Json.dll",
-        ];
-        string[] sourceFilesToAdd = [programCodePath, functionCodePath];
+        // 获取当前工作目录
+        string workingDirectory = @"C:\Users\Administrator\Desktop\dotnetclitest";
+        Directory.Delete(workingDirectory, true);
+        // 解决方案目录
+        string solutionDirectory = Path.Combine(workingDirectory, solutionName);
+        // 项目目录
+        string projectDirectory = Path.Combine(solutionDirectory, projectName);
 
-        #endregion
-        Console.WriteLine($"DotNet is installed:{DotNetProjectCreator.IsDotNetInstalled()}");
+        // 1. 创建解决方案目录
+        Directory.CreateDirectory(solutionDirectory);
+        logger.LogInformation("Created solution directory: {SolutionDirectory}", solutionDirectory);
 
-        ProjectTemplate selectedTemplate = ProjectTemplate.Console;
-        string outputDir = Environment
-            .GetFolderPath(System.Environment.SpecialFolder.Desktop)
-            .PathCombine("testcCmd");
-        string projectPath = Path.Combine(outputDir, "testcCmd.csproj");
-        
-        // 解决方案文件路径
-        string solutionPath = Environment
-            .GetFolderPath(System.Environment.SpecialFolder.Desktop)
-            .PathCombine("testcCmd","testcCmd.sln");
-        
-        // 清理之前的文件
-        Directory.CreateDirectory(outputDir);
-        Directory.Delete(outputDir, true);
-        if (File.Exists(solutionPath)) File.Delete(solutionPath);
-        
-        Directory.CreateDirectory(outputDir);
-        
-        // 使用枚举指定框架版本
-        DotNetFrameworkVersion frameworkVersion = DotNetFrameworkVersion.Net80;
+        // 2. 创建解决方案文件
+        string solutionPath = Path.Combine(solutionDirectory, $"{solutionName}.sln");
+        DotNetProjectCreator.CreateSolution(solutionPath);
 
-        // 1. 创建解决方案
-        bool solutionCreated = DotNetProjectCreator.CreateSolution(solutionPath);
-        if (!solutionCreated)
-        {
-            Console.WriteLine("Failed to create solution, exiting.");
-            return;
-        }
-
-        // 2. 创建项目，使用枚举指定框架版本
-        bool success = DotNetProjectCreator.CreateProject(selectedTemplate, outputDir, frameworkVersion);
-
-        if (success)
-        {
-            Console.WriteLine(
-                $"\nSuccessfully created project '{selectedTemplate}' at: {outputDir}"
-            );
-        }
-        else
-        {
-            Console.WriteLine(
-                $"\nFailed to create project '{selectedTemplate}'. Check the logs above."
-            );
-        }
-
-        // 3. 将项目添加到解决方案
-        bool projectAdded = DotNetProjectCreator.AddProjectToSolution(solutionPath, projectPath);
-        if (!projectAdded)
-        {
-            Console.WriteLine("Failed to add project to solution, continuing...");
-        }
-
-        // 4. 设置其他属性，使用枚举指定语言版本
-        bool langVersionSet = CsProjModifier.SetLanguageVersion(projectPath, CSharpLanguageVersion.Preview);
-        bool unsafeBlocksSet = CsProjModifier.SetProperty(projectPath, "AllowUnsafeBlocks", "true");
-
-        bool modifySuccess = CsProjModifier.AddDllReferences(projectPath, true, dllPathsToAdd);
-
-        if (!modifySuccess)
-        {
-            Console.WriteLine("Failed to modify .csproj file, exiting.");
-            return;
-        }
-        bool modifySourceSuccess = CsProjModifier.AddSourceFiles(
-            projectPath,
-            overwriteExisting: true,
-            sourceFilesToAdd
+        // 3. 创建控制台项目
+        DotNetProjectCreator.CreateProject(
+            ProjectTemplate.Console, // 使用控制台模板
+            projectDirectory, // 项目目录
+            DotNetFrameworkVersion.Net80, // 指定框架版本
+            "-n",
+            projectName // 指定项目名称
         );
 
-        if (!modifySourceSuccess)
-        {
-            Console.WriteLine("Failed to modify .csproj file for source files, exiting.");
-            return;
-        }
+        // 4. 将项目添加到解决方案
+        string projectPath = Path.Combine(projectDirectory, $"{projectName}.csproj");
+        DotNetProjectCreator.AddProjectToSolution(solutionPath, projectPath);
 
-        // 5. 编译项目
-        bool buildSuccess = DotNetProjectCreator.BuildProject(
+        // 5. 设置 C# 语言版本为最新版本
+        CsProjModifier.SetLanguageVersion(projectPath, CSharpLanguageVersion.Latest);
+
+        // 6. 添加 NuGet 包引用示例
+        CsProjModifier.AddNuGetPackage(projectPath, "Newtonsoft.Json", "13.0.3");
+
+        // 7. 设置 NuGet 包元数据示例
+        CsProjModifier.SetNuGetPackageMetadata(
             projectPath,
-            "--configuration",
-            "Debug"
-        ); // 或 Release
-
-        if (!buildSuccess)
-        {
-            Console.WriteLine("Failed to build project, exiting.");
-            return;
-        }
-
-        // 6. 运行项目
-        // 注意：如果项目需要参数，可以在这里添加
-        bool runSuccess = DotNetProjectCreator.RunProject(
-            projectPath /*, "arg1", "arg2" */
+            "Newtonsoft.Json",
+            excludeAssets: "runtime",
+            privateAssets: "all"
         );
 
-        if (runSuccess)
-        {
-            Console.WriteLine("\nAll operations completed successfully!");
-        }
-        else
-        {
-            Console.WriteLine(
-                "\nProject creation/build succeeded, but running failed or returned non-zero exit code."
-            );
-        }
+        // 8. 添加 DLL 引用示例 (假设有 DLL 文件)
+        // CsProjModifier.AddDllReferences(projectPath, true, @"C:\path\to\your\library.dll");
+
+        logger.LogInformation("All operations completed successfully!");
+        DotNetProjectCreator.BuildProject(Path.Combine(projectDirectory, projectName + ".csproj"));
+        DotNetProjectCreator.RunProject(Path.Combine(projectDirectory, projectName + ".csproj"));
     }
 }

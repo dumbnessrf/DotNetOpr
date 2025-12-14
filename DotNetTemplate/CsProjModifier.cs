@@ -1,9 +1,13 @@
 using Microsoft.Build.Construction;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 
 namespace DotNetTemplate;
 
 public class CsProjModifier
 {
+    private static ILogger logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<CsProjModifier>();
+    
     /// <summary>
     /// Sets or updates a property in the .csproj file.
     /// </summary>
@@ -15,7 +19,7 @@ public class CsProjModifier
     {
         if (!File.Exists(csprojFilePath))
         {
-            Console.WriteLine($"[ERROR] .csproj file does not exist: {csprojFilePath}");
+            logger.LogError(".csproj file does not exist: {CsprojFilePath}", csprojFilePath);
             return false;
         }
 
@@ -27,18 +31,18 @@ public class CsProjModifier
             if (result)
             {
                 projectRoot.Save();
-                Console.WriteLine($"[SUCCESS] Set property '{propertyName}' to '{propertyValue}' in .csproj file: {csprojFilePath}");
+                logger.LogInformation("Set property '{PropertyName}' to '{PropertyValue}' in .csproj file: {CsprojFilePath}", propertyName, propertyValue, csprojFilePath);
             }
             else
             {
-                Console.WriteLine($"[INFO] Property '{propertyName}' was already set to '{propertyValue}' or could not be modified in .csproj file: {csprojFilePath}");
+                logger.LogInformation("Property '{PropertyName}' was already set to '{PropertyValue}' or could not be modified in .csproj file: {CsprojFilePath}", propertyName, propertyValue, csprojFilePath);
             }
 
             return result;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Failed to modify .csproj file '{csprojFilePath}' for property '{propertyName}': {ex.Message}");
+            logger.LogError(ex, "Failed to modify .csproj file '{CsprojFilePath}' for property '{PropertyName}'", csprojFilePath, propertyName);
             return false;
         }
     }
@@ -54,25 +58,29 @@ public class CsProjModifier
         string langVersionString = GetLanguageVersionString(langVersion);
         return SetProperty(csprojFilePath, "LangVersion", langVersionString);
     }
-    
-/// <summary>
+
+    /// <summary>
     /// 向指定的 .csproj 文件添加一个或多个对本地 DLL 的引用。
     /// </summary>
     /// <param name="csprojFilePath">.csproj 文件的完整路径</param>
     /// <param name="dllPaths">要添加引用的 DLL 文件路径数组</param>
     /// <param name="copyToLocal">是否将 DLL 复制到输出目录 (默认 true)</param>
     /// <returns>是否成功修改并保存文件</returns>
-    public static bool AddDllReferences(string csprojFilePath, bool copyToLocal = true, params string[] dllPaths)
+    public static bool AddDllReferences(
+        string csprojFilePath,
+        bool copyToLocal = true,
+        params string[] dllPaths
+    )
     {
         if (!File.Exists(csprojFilePath))
         {
-            Console.WriteLine($"[ERROR] .csproj file does not exist: {csprojFilePath}");
+            logger.LogError(".csproj file does not exist: {CsprojFilePath}", csprojFilePath);
             return false;
         }
 
         if (dllPaths == null || dllPaths.Length == 0)
         {
-            Console.WriteLine("[INFO] No DLL paths provided to add.");
+            logger.LogInformation("No DLL paths provided to add.");
             return true; // Nothing to do, but not an error
         }
 
@@ -85,10 +93,14 @@ public class CsProjModifier
             ProjectItemGroupElement itemGroup = null;
             foreach (var ig in projectRoot.ItemGroups)
             {
-                if (ig.Items.Any(i => i.ElementName.Equals("Reference", StringComparison.OrdinalIgnoreCase)))
+                if (
+                    ig.Items.Any(i =>
+                        i.ElementName.Equals("Reference", StringComparison.OrdinalIgnoreCase)
+                    )
+                )
                 {
-                     itemGroup = ig;
-                     break;
+                    itemGroup = ig;
+                    break;
                 }
             }
 
@@ -103,7 +115,7 @@ public class CsProjModifier
             {
                 if (!File.Exists(dllPath))
                 {
-                    Console.WriteLine($"[WARNING] DLL file does not exist, skipping: {dllPath}");
+                    logger.LogWarning("DLL file does not exist, skipping: {DllPath}", dllPath);
                     continue;
                 }
 
@@ -112,8 +124,9 @@ public class CsProjModifier
 
                 // Check if the reference already exists
                 var existingRef = itemGroup.Items.FirstOrDefault(i =>
-                    i.ElementName.Equals("Reference", StringComparison.OrdinalIgnoreCase) &&
-                    i.Include.Equals(fileNameWithoutExt, StringComparison.OrdinalIgnoreCase));
+                    i.ElementName.Equals("Reference", StringComparison.OrdinalIgnoreCase)
+                    && i.Include.Equals(fileNameWithoutExt, StringComparison.OrdinalIgnoreCase)
+                );
 
                 if (existingRef == null)
                 {
@@ -124,13 +137,15 @@ public class CsProjModifier
                     // 4. Add Private/CopyLocal metadata
                     newItem.AddMetadata("Private", copyToLocal.ToString().ToLower()); // "true" or "false"
 
-                    string action = copyToLocal ? "Added reference (and set Copy Local)" : "Added reference (without Copy Local)";
-                    Console.WriteLine($"[INFO] {action} to '{fileNameWithoutExt}' from '{hintPath}'");
+                    string action = copyToLocal
+                        ? "Added reference (and set Copy Local)"
+                        : "Added reference (without Copy Local)";
+                    logger.LogInformation("{Action} to '{FileNameWithoutExt}' from '{HintPath}'", action, fileNameWithoutExt, hintPath);
                     changesMade = true;
                 }
                 else
                 {
-                    Console.WriteLine($"[INFO] Reference to '{fileNameWithoutExt}' already exists, skipping.");
+                    logger.LogInformation("Reference to '{FileNameWithoutExt}' already exists, skipping.", fileNameWithoutExt);
                 }
             }
 
@@ -138,23 +153,23 @@ public class CsProjModifier
             {
                 // 5. Save the modified .csproj file
                 projectRoot.Save();
-                Console.WriteLine($"[SUCCESS] Modified .csproj file: {csprojFilePath}");
+                logger.LogInformation("Modified .csproj file: {CsprojFilePath}", csprojFilePath);
                 return true;
             }
             else
             {
-                 Console.WriteLine($"[INFO] No new references were added to .csproj file: {csprojFilePath}");
-                 return true; // Still considered successful, no changes needed
+                logger.LogInformation("No new references were added to .csproj file: {CsprojFilePath}", csprojFilePath);
+                return true; // Still considered successful, no changes needed
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Failed to modify .csproj file '{csprojFilePath}': {ex.Message}");
+            logger.LogError(ex, "Failed to modify .csproj file '{CsprojFilePath}'", csprojFilePath);
             return false;
         }
     }
 
-/// <summary>
+    /// <summary>
     /// 向指定的 .csproj 文件添加一个或多个代码文件 (如 .cs, .vb, .fs)，并可以选择是否覆盖已存在的文件。
     /// 同时设置 EnableDefaultCompileItems 为 false 以避免冲突。
     /// </summary>
@@ -162,17 +177,21 @@ public class CsProjModifier
     /// <param name="overwriteExisting">如果目标项目中已存在同名文件，是否覆盖 (默认 false)</param>
     /// <param name="sourceFilePaths">要添加的源代码文件路径数组</param>
     /// <returns>是否成功修改并保存文件</returns>
-    public static bool AddSourceFiles(string csprojFilePath, bool overwriteExisting = false, params string[] sourceFilePaths)
+    public static bool AddSourceFiles(
+        string csprojFilePath,
+        bool overwriteExisting = false,
+        params string[] sourceFilePaths
+    )
     {
         if (!File.Exists(csprojFilePath))
         {
-            Console.WriteLine($"[ERROR] .csproj file does not exist: {csprojFilePath}");
+            logger.LogError(".csproj file does not exist: {CsprojFilePath}", csprojFilePath);
             return false;
         }
 
         if (sourceFilePaths == null || sourceFilePaths.Length == 0)
         {
-            Console.WriteLine("[INFO] No source file paths provided to add.");
+            logger.LogInformation("No source file paths provided to add.");
             return true; // Nothing to do, but not an error
         }
 
@@ -183,22 +202,26 @@ public class CsProjModifier
             // 1. 设置 EnableDefaultCompileItems 为 false
             if (!SetPropertyInternal(projectRoot, "EnableDefaultCompileItems", "false"))
             {
-                Console.WriteLine("[WARNING] Could not set EnableDefaultCompileItems property, it might already be set or there was an issue.");
+                logger.LogWarning("Could not set EnableDefaultCompileItems property, it might already be set or there was an issue.");
                 // This might not be critical if it's already set, so we continue.
             }
             else
             {
-                Console.WriteLine("[INFO] Set EnableDefaultCompileItems to false.");
+                logger.LogInformation("Set EnableDefaultCompileItems to false.");
             }
 
             // Find or create an ItemGroup for Compile items (for .cs files)
             ProjectItemGroupElement compileItemGroup = null;
             foreach (var ig in projectRoot.ItemGroups)
             {
-                if (ig.Items.Any(i => i.ElementName.Equals("Compile", StringComparison.OrdinalIgnoreCase)))
+                if (
+                    ig.Items.Any(i =>
+                        i.ElementName.Equals("Compile", StringComparison.OrdinalIgnoreCase)
+                    )
+                )
                 {
-                     compileItemGroup = ig;
-                     break;
+                    compileItemGroup = ig;
+                    break;
                 }
             }
 
@@ -212,67 +235,74 @@ public class CsProjModifier
             {
                 if (!File.Exists(sourcePath))
                 {
-                    Console.WriteLine($"[WARNING] Source file does not exist, skipping: {sourcePath}");
+                    logger.LogWarning("Source file does not exist, skipping: {SourcePath}", sourcePath);
                     continue;
                 }
 
                 string fileName = Path.GetFileName(sourcePath);
                 string relativePathWithinProject = fileName; // Or calculate relative path if needed
-                string targetPathInProject = Path.Combine(Path.GetDirectoryName(csprojFilePath), relativePathWithinProject);
+                string targetPathInProject = Path.Combine(
+                    Path.GetDirectoryName(csprojFilePath),
+                    relativePathWithinProject
+                );
 
                 if (File.Exists(targetPathInProject))
                 {
                     if (overwriteExisting)
                     {
-                        Console.WriteLine($"[INFO] Overwriting existing file: {targetPathInProject}");
+                        logger.LogInformation("Overwriting existing file: {TargetPathInProject}", targetPathInProject);
                         File.Copy(sourcePath, targetPathInProject, overwrite: true);
                     }
                     else
                     {
-                         Console.WriteLine($"[INFO] File '{targetPathInProject}' already exists in project directory. Skipping copy. (Set overwriteExisting=true to replace)");
+                        logger.LogInformation("File '{TargetPathInProject}' already exists in project directory. Skipping copy. (Set overwriteExisting=true to replace)", targetPathInProject);
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"[INFO] Copying new file to project: {targetPathInProject}");
+                    logger.LogInformation("Copying new file to project: {TargetPathInProject}", targetPathInProject);
                     File.Copy(sourcePath, targetPathInProject, overwrite: true);
                 }
 
                 string itemType = GetMsBuildItemTypeForExtension(Path.GetExtension(sourcePath));
-                ProjectItemGroupElement targetItemGroup = GetOrCreateItemGroupForType(projectRoot, itemType);
+                ProjectItemGroupElement targetItemGroup = GetOrCreateItemGroupForType(
+                    projectRoot,
+                    itemType
+                );
 
                 var existingCompileItem = targetItemGroup.Items.FirstOrDefault(i =>
-                    i.ElementName.Equals(itemType, StringComparison.OrdinalIgnoreCase) &&
-                    Path.GetFileName(i.Include).Equals(fileName, StringComparison.OrdinalIgnoreCase)
+                    i.ElementName.Equals(itemType, StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(i.Include)
+                        .Equals(fileName, StringComparison.OrdinalIgnoreCase)
                 );
 
                 if (existingCompileItem == null)
                 {
                     var newItem = targetItemGroup.AddItem(itemType, relativePathWithinProject);
-                    Console.WriteLine($"[INFO] Added '{itemType}' item '{relativePathWithinProject}' to .csproj");
+                    logger.LogInformation("Added '{ItemType}' item '{RelativePathWithinProject}' to .csproj", itemType, relativePathWithinProject);
                     changesMade = true;
                 }
                 else
                 {
-                    Console.WriteLine($"[INFO] '{itemType}' item '{relativePathWithinProject}' already exists in .csproj, skipping.");
+                    logger.LogInformation("'{ItemType}' item '{RelativePathWithinProject}' already exists in .csproj, skipping.", itemType, relativePathWithinProject);
                 }
             }
 
             if (changesMade)
             {
                 projectRoot.Save();
-                Console.WriteLine($"[SUCCESS] Modified .csproj file: {csprojFilePath}");
+                logger.LogInformation("Modified .csproj file: {CsprojFilePath}", csprojFilePath);
                 return true;
             }
             else
             {
-                 Console.WriteLine($"[INFO] No new source items were added to .csproj file: {csprojFilePath}");
-                 return true; // Still considered successful, no changes needed
+                logger.LogInformation("No new source items were added to .csproj file: {CsprojFilePath}", csprojFilePath);
+                return true; // Still considered successful, no changes needed
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ERROR] Failed to modify .csproj file '{csprojFilePath}' for source files: {ex.Message}");
+            logger.LogError(ex, "Failed to modify .csproj file '{CsprojFilePath}' for source files", csprojFilePath);
             return false;
         }
     }
@@ -314,25 +344,34 @@ public class CsProjModifier
     /// <param name="projectRoot">The root element of the project file.</param>
     /// <param name="itemType">The item type (e.g., "Compile", "EmbeddedResource").</param>
     /// <returns>The found or created ItemGroup.</returns>
-    private static ProjectItemGroupElement GetOrCreateItemGroupForType(ProjectRootElement projectRoot, string itemType)
+    private static ProjectItemGroupElement GetOrCreateItemGroupForType(
+        ProjectRootElement projectRoot,
+        string itemType
+    )
     {
         foreach (var ig in projectRoot.ItemGroups)
         {
-            if (ig.Items.Any(i => i.ElementName.Equals(itemType, StringComparison.OrdinalIgnoreCase)))
+            if (
+                ig.Items.Any(i =>
+                    i.ElementName.Equals(itemType, StringComparison.OrdinalIgnoreCase)
+                )
+            )
             {
-                 return ig;
+                return ig;
             }
         }
         // Create a new ItemGroup if not found
         return projectRoot.AddItemGroup();
     }
-    
 
-    
     /// <summary>
     /// Internal helper to set a property on a ProjectRootElement.
     /// </summary>
-    private static bool SetPropertyInternal(ProjectRootElement projectRoot, string propertyName, string propertyValue)
+    private static bool SetPropertyInternal(
+        ProjectRootElement projectRoot,
+        string propertyName,
+        string propertyValue
+    )
     {
         // Find the first PropertyGroup or create one if none exists
         var propertyGroup = projectRoot.PropertyGroups.FirstOrDefault();
@@ -343,7 +382,9 @@ public class CsProjModifier
         }
 
         // Find the property or create one if it doesn't exist
-        var existingProperty = propertyGroup.Properties.FirstOrDefault(p => p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase));
+        var existingProperty = propertyGroup.Properties.FirstOrDefault(p =>
+            p.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase)
+        );
 
         if (existingProperty != null)
         {
@@ -363,7 +404,7 @@ public class CsProjModifier
             return true; // Added
         }
     }
-    
+
     /// <summary>
     /// 将 CSharpLanguageVersion 枚举转换为对应的字符串
     /// </summary>
@@ -386,7 +427,199 @@ public class CsProjModifier
             CSharpLanguageVersion.CSharp11 => "11.0",
             CSharpLanguageVersion.CSharp12 => "12.0",
             CSharpLanguageVersion.CSharp13 => "13.0",
-            _ => "latest"
+            _ => "latest",
         };
+    }
+
+    /// <summary>
+    /// 向指定的 .csproj 文件添加 NuGet 包引用
+    /// </summary>
+    /// <param name="csprojFilePath">.csproj 文件的完整路径</param>
+    /// <param name="packageName">NuGet 包名称</param>
+    /// <param name="version">NuGet 包版本（可选）</param>
+    /// <returns>是否成功修改并保存文件</returns>
+    public static bool AddNuGetPackage(
+        string csprojFilePath,
+        string packageName,
+        string version 
+    )
+    {
+        if (!File.Exists(csprojFilePath))
+        {
+            logger.LogError(".csproj file does not exist: {CsprojFilePath}", csprojFilePath);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(packageName))
+        {
+            logger.LogError("Package name cannot be null or empty.");
+            return false;
+        }
+
+        try
+        {
+            // 加载 .csproj 文件
+            var projectRoot = ProjectRootElement.Open(csprojFilePath);
+
+            // 查找或创建 ItemGroup 来放置 PackageReference
+            ProjectItemGroupElement itemGroup = null;
+            foreach (var ig in projectRoot.ItemGroups)
+            {
+                if (
+                    ig.Items.Any(i =>
+                        i.ElementName.Equals("PackageReference", StringComparison.OrdinalIgnoreCase)
+                    )
+                )
+                {
+                    itemGroup = ig;
+                    break;
+                }
+            }
+
+            if (itemGroup == null)
+            {
+                itemGroup = projectRoot.AddItemGroup();
+            }
+
+            // 检查是否已经存在相同的包引用
+            var existingPackage = itemGroup.Items.FirstOrDefault(i =>
+                i.ElementName.Equals("PackageReference", StringComparison.OrdinalIgnoreCase)
+                && i.Include.Equals(packageName, StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (existingPackage != null)
+            {
+                logger.LogInformation("Package '{PackageName}' already exists in the project, skipping.", packageName);
+                return true;
+            }
+
+            // 添加新的 PackageReference
+            var packageItem = itemGroup.AddItem("PackageReference", packageName);
+
+            // 如果指定了版本，则添加 Version 元数据
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                packageItem.AddMetadata("Version", version);
+            }
+
+            // 保存修改后的 .csproj 文件
+            projectRoot.Save();
+            logger.LogInformation("Added NuGet package '{PackageName}' to .csproj file: {CsprojFilePath}", packageName, csprojFilePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to add NuGet package '{PackageName}' to .csproj file '{CsprojFilePath}'", packageName, csprojFilePath);
+            return false;
+        }
+    }
+    
+    /// <summary>
+    /// 设置 NuGet 包的元数据（如 ExcludeAssets、PrivateAssets 等）
+    /// </summary>
+    /// <param name="csprojFilePath">.csproj 文件的完整路径</param>
+    /// <param name="packageName">NuGet 包名称</param>
+    /// <param name="excludeAssets">ExcludeAssets 参数（可选）</param>
+    /// <param name="privateAssets">PrivateAssets 参数（可选）</param>
+    /// <returns>是否成功设置元数据</returns>
+    public static bool SetNuGetPackageMetadata(
+        string csprojFilePath,
+        string packageName,
+        string excludeAssets = null,
+        string privateAssets = null)
+    {
+        if (!File.Exists(csprojFilePath))
+        {
+            logger.LogError(".csproj file does not exist: {CsprojFilePath}", csprojFilePath);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(packageName))
+        {
+            logger.LogError("Package name cannot be null or empty.");
+            return false;
+        }
+
+        try
+        {
+            // 加载 .csproj 文件
+            var projectRoot = ProjectRootElement.Open(csprojFilePath);
+
+            // 查找包含 PackageReference 的 ItemGroup
+            var itemGroup = projectRoot.ItemGroups
+                .FirstOrDefault(ig => ig.Items.Any(i =>
+                    i.ElementName.Equals("PackageReference", StringComparison.OrdinalIgnoreCase) &&
+                    i.Include.Equals(packageName, StringComparison.OrdinalIgnoreCase)));
+
+            if (itemGroup == null)
+            {
+                logger.LogError("Package '{PackageName}' not found in project: {CsprojFilePath}", packageName, csprojFilePath);
+                return false;
+            }
+
+            // 查找指定的包引用
+            var packageItem = itemGroup.Items.FirstOrDefault(i =>
+                i.ElementName.Equals("PackageReference", StringComparison.OrdinalIgnoreCase) &&
+                i.Include.Equals(packageName, StringComparison.OrdinalIgnoreCase));
+
+            if (packageItem == null)
+            {
+                logger.LogError("Package '{PackageName}' not found in project: {CsprojFilePath}", packageName, csprojFilePath);
+                return false;
+            }
+
+            // 更新或添加 ExcludeAssets 元数据
+            if (!string.IsNullOrWhiteSpace(excludeAssets))
+            {
+                UpdateOrAddMetadata(packageItem, "ExcludeAssets", excludeAssets);
+            }
+
+            // 更新或添加 PrivateAssets 元数据
+            if (!string.IsNullOrWhiteSpace(privateAssets))
+            {
+                UpdateOrAddMetadata(packageItem, "PrivateAssets", privateAssets);
+            }
+
+            // 保存修改后的 .csproj 文件
+            projectRoot.Save();
+            logger.LogInformation("Updated metadata for NuGet package '{PackageName}' in project: {CsprojFilePath}", packageName, csprojFilePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Exception occurred while setting metadata for NuGet package '{PackageName}'", packageName);
+            return false;
+        }
+    }
+    
+    /// <summary>
+    /// 更新或添加元数据项
+    /// </summary>
+    /// <param name="item">要更新的项目元素</param>
+    /// <param name="metadataName">元数据名称</param>
+    /// <param name="metadataValue">元数据值</param>
+    private static void UpdateOrAddMetadata(ProjectItemElement item, string metadataName, string metadataValue)
+    {
+        var existingMetadata = item.Metadata.FirstOrDefault(m => m.Name.Equals(metadataName, StringComparison.OrdinalIgnoreCase));
+        
+        if (existingMetadata != null)
+        {
+            // 如果元数据已存在，更新它的值
+            if (!existingMetadata.Value.Equals(metadataValue, StringComparison.OrdinalIgnoreCase))
+            {
+                existingMetadata.Value = metadataValue;
+                logger.LogInformation("Updated metadata '{MetadataName}' from '{OldValue}' to '{NewValue}'", metadataName, existingMetadata.Value, metadataValue);
+            }
+            else
+            {
+                logger.LogInformation("Metadata '{MetadataName}' already set to '{MetadataValue}', no change needed", metadataName, metadataValue);
+            }
+        }
+        else
+        {
+            // 如果元数据不存在，添加新的元数据
+            item.AddMetadata(metadataName, metadataValue);
+            logger.LogInformation("Added metadata '{MetadataName}' with value '{MetadataValue}'", metadataName, metadataValue);
+        }
     }
 }

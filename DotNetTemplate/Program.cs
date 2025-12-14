@@ -3,6 +3,7 @@ using SharpBoxesCore.Helpers;
 
 Console.WriteLine($"Please See example code in [{nameof(Sample_ConsoleCreate)}] and [{nameof(Sample_WpfCreate)}] ");
 new Sample_ConsoleCreate().Foo();
+new Sample_WpfCreate().Foo();
 // 示例：如何在创建项目时一起创建解决方案
 /*
  * 新增功能说明：
